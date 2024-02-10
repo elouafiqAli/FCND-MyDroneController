@@ -109,6 +109,7 @@ V3F QuadControl::BodyRateControl(V3F pqrCmd, V3F pqr)
   V3F momentCmd;
 
   ////////////////////////////// BEGIN STUDENT CODE ///////////////////////////
+  // Thanks to guidance note by NEHA on Mentor Forum in Udacity
   V3F Insta;
   Insta.x = Ixx;
   Insta.y = Iyy;
@@ -147,8 +148,9 @@ V3F QuadControl::RollPitchControl(V3F accelCmd, Quaternion<float> attitude, floa
 
   ////////////////////////////// BEGIN STUDENT CODE ///////////////////////////
 
-if (collThrustCmd > 0)
-   {
+    // Thanks to guidance note by CEDRIC PARFAIT on Mentor Forum in Udacity
+    if (collThrustCmd > 0)
+    {
        float c = -collThrustCmd / mass;
        float b_x_cmd = CONSTRAIN(accelCmd.x / c, -maxTiltAngle, maxTiltAngle);
        float b_y_cmd = CONSTRAIN(accelCmd.y / c, -maxTiltAngle, maxTiltAngle);
@@ -161,12 +163,12 @@ if (collThrustCmd > 0)
 
        pqrCmd.x = p_cmd;
        pqrCmd.y = q_cmd;
-   }
-   else
-   {
+    }
+    else
+    {
        pqrCmd.x = 0.0;
        pqrCmd.y = 0.0;
-   }
+    }
 
   /////////////////////////////// END STUDENT CODE ////////////////////////////
 
@@ -198,7 +200,17 @@ float QuadControl::AltitudeControl(float posZCmd, float velZCmd, float posZ, flo
 
   ////////////////////////////// BEGIN STUDENT CODE ///////////////////////////
 
+    float posZErr = posZCmd - posZ;
+    float velZErr = velZCmd - velZ;
+    float CONST_GRAVITY = 9.81f;
+    // Calculate the PID output for altitude control
+    integratedAltitudeError += posZErr * dt;
 
+    float u1_bar = kpPosZ * posZErr + kpVelZ * velZErr + KiPosZ * integratedAltitudeError + accelZCmd ;
+
+    // Convert acceleration to thrust and adjust for the drone's orientation
+    float acc = CONSTRAIN(u1_bar - CONST_GRAVITY, -maxAscentRate / dt, maxDescentRate / dt);
+    thrust = -mass * acc / R(2, 2);
 
   /////////////////////////////// END STUDENT CODE ////////////////////////////
   
@@ -236,7 +248,19 @@ V3F QuadControl::LateralPositionControl(V3F posCmd, V3F velCmd, V3F pos, V3F vel
 
   ////////////////////////////// BEGIN STUDENT CODE ///////////////////////////
 
-  
+    // Compute position and velocity errors
+    V3F posError = posCmd - pos;
+    V3F velError = velCmd - vel;
+
+    // Apply PD controller to compute desired acceleration
+    accelCmd += kpPosXY * posError + kpVelXY * velError;
+
+    // Limit the acceleration to maxAccelXY
+    if (accelCmd.magXY() > maxAccelXY) {
+        accelCmd = accelCmd.norm() * maxAccelXY;
+    }
+
+    accelCmd.z = 0; // Ensure no vertical component in the lateral control output
 
   /////////////////////////////// END STUDENT CODE ////////////////////////////
 
@@ -258,7 +282,14 @@ float QuadControl::YawControl(float yawCmd, float yaw)
 
   float yawRateCmd=0;
   ////////////////////////////// BEGIN STUDENT CODE ///////////////////////////
+  float yawError = fmodf(yawCmd - yaw, 2 * F_PI);
+  if (yawError > F_PI) {
+      yawError -= 2 * F_PI;
+  } else if (yawError < -F_PI) {
+      yawError += 2 * F_PI;
+  }
 
+  yawRateCmd = kpYaw * yawError;
 
   /////////////////////////////// END STUDENT CODE ////////////////////////////
 
