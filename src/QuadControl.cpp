@@ -70,16 +70,16 @@ VehicleCommand QuadControl::GenerateMotorCommands(float collThrustCmd, V3F momen
 
   ////////////////////////////// BEGIN STUDENT CODE ///////////////////////////
     
-    float tau_z = momentCmd.z / kappa; // Yaw moment
-    // allign with center of the trail with 1/sqrt(2)
-    float tau_x = sqrtf(2.f)* momentCmd.x / L; // Roll Moment
-    float tau_y = sqrtf(2.f)* momentCmd.y / L; // Pitch Moment
+    float tau_psi_z = momentCmd.z / kappa; // Yaw moment / kappa
+    float d = L/sqrtf(2.f);
+    float tau_phi_x = momentCmd.x / d; // Roll Moment / d
+    float tau_teta_y = momentCmd.y / d; // Pitch Moment /d
     
     
-    float cmd_front_left = (collThrustCmd + tau_x + tau_y - tau_z) / 4.f;
-    float cmd_front_right = (collThrustCmd - tau_x + tau_y + tau_z) / 4.f;
-    float cmd_rear_left = (collThrustCmd + tau_x - tau_y + tau_z) / 4.f;
-    float cmd_rear_right = (collThrustCmd - tau_x - tau_y - tau_z) / 4.f; // Rear right
+    float cmd_front_left = (collThrustCmd + tau_phi_x + tau_teta_y - tau_psi_z) / 4.f;
+    float cmd_front_right = (collThrustCmd - tau_phi_x + tau_teta_y + tau_psi_z) / 4.f;
+    float cmd_rear_left = (collThrustCmd + tau_phi_x - tau_teta_y + tau_psi_z) / 4.f;
+    float cmd_rear_right = (collThrustCmd - tau_phi_x - tau_teta_y - tau_psi_z) / 4.f;
     
     // Set motor commands in the class variable
     cmd.desiredThrustsN[0] = cmd_front_left;
@@ -202,15 +202,15 @@ float QuadControl::AltitudeControl(float posZCmd, float velZCmd, float posZ, flo
 
     float posZErr = posZCmd - posZ;
     float velZErr = velZCmd - velZ;
-    float CONST_GRAVITY = 9.81f;
     // Calculate the PID output for altitude control
     integratedAltitudeError += posZErr * dt;
 
     float u1_bar = kpPosZ * posZErr + kpVelZ * velZErr + KiPosZ * integratedAltitudeError + accelZCmd ;
 
     // Convert acceleration to thrust and adjust for the drone's orientation
-    float acc = CONSTRAIN(u1_bar - CONST_GRAVITY, -maxAscentRate / dt, maxDescentRate / dt);
-    thrust = -mass * acc / R(2, 2);
+    float acc = (u1_bar - CONST_GRAVITY) / R(2,2);
+    thrust = -mass * acc;
+    thrust = CONSTRAIN(thrust, 4 * minMotorThrust, 4 * maxMotorThrust);
 
   /////////////////////////////// END STUDENT CODE ////////////////////////////
   

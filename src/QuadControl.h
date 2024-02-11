@@ -45,7 +45,7 @@ public:
   float maxAccelXY;
   float maxTiltAngle;
   float minMotorThrust, maxMotorThrust;
-
+  const float CONST_GRAVITY = 9.81f;
   // integral control
   float integratedAltitudeError;
 };
