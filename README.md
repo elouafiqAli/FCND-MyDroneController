@@ -1,5 +1,23 @@
-# Write Up #
-## Scenario 2 ##
+# Project Write Up #
+
+In this project our objective is to implement components of a Drone Controller, by going through the recommended steps in the course:
+
+- Body-rate controller
+- Roll-pitch controller
+- Altitude controller
+- Lateral controller
+- Yaw controller
+
+In this write up we will go step by step for the design decisions, based from first principles till we build up the controller.
+
+The architecture of the controller was derived from Professor Angela P. Schoellig work, from the Udacity course, and from her publications.
+
+The controller design is based on the _continuous-time_ system dynamics representation, for a trajectory following application.
+
+![Drone Controller Architecture](/img/angel_schoellig_architecture_control.png)
+
+
+## Deriving Motor Forces and Body Rate - Scenario 2 ##
 
 In order to go explain how we did derive the Motor forces and Body Rates, we would have to go to explain first principles.
 
@@ -13,6 +31,8 @@ A quadcopter in an "X" configuration has four motors arranged symmetrically arou
 * $F_3$ Motor 3 (Rear Right)
 * $F_4$ Motor 4 (Rear Left)
 
+
+![Drone Propeller Motors Clock Wise and Counter Clockwise](/img/udacity_drone_propellers_CCW_CW.png)
 
 ### Equations for Dynamics
 
@@ -32,7 +52,6 @@ A quadcopter in an "X" configuration has four motors arranged symmetrically arou
 Here,  $d$  is the distance from each motor to the center of mass, and  $\kappa$  represents the conversion factor from motor speed to generated torque, taking into account the aerodynamic drag of the propellers.
 
 ### Derivation of Control Matrix from Motor Ratios and Physical Parameters
-
 
 The following matrix directly maps the desired flight dynamics ( $T, \tau_{\phi}, \tau_{\theta}, \tau_{\psi}$ ) to the individual motor thrust commands ( $F_1, F_2, F_3, F_4$ ). For an "X" configuration quadcopter, considering the above equations and simplifying based on symmetric design and equal arm lengths, we can express as:
 
@@ -163,7 +182,7 @@ V3F QuadControl::BodyRateControl(V3F pqrCmd, V3F pqr)
 }
 ```
 
-### Computing Tilt angles of the Body Frame
+## Deriving Roll and Pitch Control rates - Scenario 2 (continued)
 
 First, we need to understand the desired acceleration in the body frame. The accelerations $\ddot{x}$ and $\ddot{y}$ in the body frame are proportional to the tilt angles $b^x$ and $b^y$ because tilting the drone creates a component of thrust in the respective body frame direction.
 
@@ -267,4 +286,6 @@ V3F QuadControl::RollPitchControl(V3F accelCmd, Quaternion<float> attitude, floa
 }
 ```
 
-Each step in this process contributes to the stabilization and maneuverability of the quadcopter in the roll and pitch axes, allowing it to achieve the desired orientation and direction of motion.
+The results gives us the following simulation
+
+![Drone Controller Architecture](img/scenario_2_ali_elouafiq.gif)
