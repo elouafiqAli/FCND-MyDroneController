@@ -10,12 +10,11 @@ In this project our objective is to implement components of a Drone Controller, 
 
 In this write up we will go step by step for the design decisions, based from first principles till we build up the controller.
 
-The architecture of the controller was derived from Professor Angela P. Schoellig work, from the Udacity course, and from her publications.
-
-The controller design is based on the _continuous-time_ system dynamics representation, for a trajectory following application.
+The architecture of the controller was derived from Professor Angela P. Schoellig work, from the Udacity course, and from her publications. The controller design is based on the _continuous-time_ system dynamics representation, for a trajectory following application.
 
 ![Drone Controller Architecture](/img/angel_schoellig_architecture_control.png)
 
+More on A. P. Schoellig, C. Wiltsche and R. D'Andrea, !["Feed-forward parameter identification for precise periodic quadrocopter motions"](https://www.dynsyslab.org/wp-content/papercite-data/pdf/schoellig-acc12.pdf) 2012 American Control Conference (ACC),
 
 ## Deriving Motor Forces and Body Rate - Scenario 2 ##
 
