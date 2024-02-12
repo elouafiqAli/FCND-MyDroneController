@@ -287,4 +287,197 @@ V3F QuadControl::RollPitchControl(V3F accelCmd, Quaternion<float> attitude, floa
 
 The results gives us the following simulation
 
-![Drone Controller Architecture](img/scenario_2_ali_elouafiq.gif)
+![Simulation Results 2](img/scenario_2_ali_elouafiq.gif)
+
+Let's delve into the implementation details for the altitude, yaw, and lateral position control for a drone, integrating the provided PID control equations, non-linear control equations, and code snippets from C++.
+
+## Altitude, Lateral Position, and Yaw - Scenario 3 and 4
+### Altitude Controller Implementation
+
+The altitude controller's goal is to maintain a set altitude by controlling vertical acceleration and thus vertical thrust.
+
+**Error Calculation**:
+
+The difference between the target altitude $z_{\text{target}}$ and the actual altitude $z_{\text{actual}}$ is calculated to find the altitude error $e$. 
+While The rate of altitude change is also considered $\dot{e}$.
+
+```math
+e = z_{\text{target}} - z_{\text{actual}}
+```
+```math
+\dot{e} = \dot{z}_{\text{target}} - \dot{z}_{\text{actual}}
+```
+
+```cpp
+    float posZErr = posZCmd - posZ;
+    float velZErr = velZCmd - velZ;
+```
+
+**PID Control**:
+A PID controller computes a control signal based on the altitude error and its derivatives. $\bar{u_z}$ , incorporating proportional $k_p$ , derivative $k_d$ , and integral $k_i$ components, as well as a feed-forward term $\ddot{z}_{\text{ff}}$ .
+
+The integral term is often implemented discretely by summing the error over time, multiplied by the time step $dt$.
+ 
+```math  
+ \bar{u}_1 = k_p e + k_d \dot{e} + k_i \int_0^t e(t')dt' + \ddot{z}_{\text{ff}}
+```
+
+```cpp
+  integratedAltitudeError += posZErr * dt;
+  float u1_bar = kpPosZ * posZErr + kpVelZ * velZErr + KiPosZ * integratedAltitudeError + accelZCmd ;
+```
+
+**Thrust Adjustment**:
+
+In the course we learend that linear acceleration can be expressed by the next linear equation
+
+```math
+\begin{pmatrix} \ddot{x} \\ \ddot{y} \\ \ddot{z}\end{pmatrix}  = \begin{pmatrix} 0 \\ 0 \\ g\end{pmatrix} + R \begin{pmatrix} 0 \\ 0 \\ c \end{pmatrix} 
+```
+
+where $R = R(\psi) \times R(\theta) \times R(\phi)$. The individual linear acceleration has the form of 
+
+```math
+\begin{align}
+\ddot{x} &= c b^x \\ 
+\ddot{y} &= c b^y \\ 
+\ddot{z} &= c b^z +g
+\end{align}
+```
+
+where $b^x = R_{13}$, $b^y= R_{23}$ and $b^z = R_{33}$ are the elements of the last column of the rotation matrix. 
+
+We are controlling the vertical acceleration: 
+
+```math
+\bar{u}_1 = \ddot{z} = c b^z +g
+```
+
+Therefore 
+
+$$c = (\bar{u}_1-g)/b^z$$  
+
+which lead us to the following transformation of thrust
+
+```cpp
+    float acc = (u1_bar - CONST_GRAVITY) / R(2,2);
+    thrust = -mass * acc;
+    thrust = CONSTRAIN(thrust, 4 * minMotorThrust, 4 * maxMotorThrust);
+```
+
+Putting it all together we obtain the ```QuadControl::AltitudeControl()``` implementation
+
+```cpp
+
+float QuadControl::AltitudeControl(float posZCmd, float velZCmd, float posZ, float velZ, Quaternion<float> attitude, float accelZCmd, float dt)
+{
+
+  Mat3x3F R = attitude.RotationMatrix_IwrtB();
+  float thrust = 0;
+
+  float posZErr = posZCmd - posZ;
+  float velZErr = velZCmd - velZ;
+  // Calculate the PID output for altitude control
+  integratedAltitudeError += posZErr * dt;
+
+  float u1_bar = kpPosZ * posZErr + kpVelZ * velZErr + KiPosZ * integratedAltitudeError + accelZCmd ;
+
+  // Convert acceleration to thrust and adjust for the drone's orientation
+  float acc = (u1_bar - CONST_GRAVITY) / R(2,2);
+  thrust = -mass * acc;
+  thrust = CONSTRAIN(thrust, 4 * minMotorThrust, 4 * maxMotorThrust);
+
+  return thrust;
+}
+
+```
+ 
+### Lateral Position Controller
+
+The lateral position controller aims to maintain or change the drone's position in the North-East (NE) plane.
+
+**PD Control for Acceleration Command**:
+
+The controller first computes the desired lateral accelerations using a PD controller, in the NE plane based on position and velocity errors, applying proportional $k_p$ and derivative $k_d$ gains.
+
+```math
+\begin{align}
+x_{\text{error}} = x_{\text{target}} - x_{\text{actual}} \\
+\dot{x}_{\text{error}} = \dot{x}_{\text{target}} - \dot{x}_{\text{actual}} \\
+\ddot{x}_{\text{command}} = k_p^x * x_{\text{error}}  + k_d^x *\dot{x}_{\text{error}} + \ddot{x}_{\text{target}}
+\end{align}
+```
+
+Putting it together we get the following implementation of ```QuadControl::LateralPositionControl()``` , with constraints in consideration
+
+```cpp
+V3F QuadControl::LateralPositionControl(V3F posCmd, V3F velCmd, V3F pos, V3F vel, V3F accelCmdFF)
+{
+   // .....
+
+  // Compute position and velocity errors
+  V3F posError = posCmd - pos;
+  V3F velError = velCmd - vel;
+
+  // Apply PD controller to compute desired acceleration
+  accelCmd += kpPosXY * posError + kpVelXY * velError;
+
+  // Limit the acceleration to maxAccelXY
+  if (accelCmd.magXY() > maxAccelXY) {
+      accelCmd = accelCmd.norm() * maxAccelXY;
+  }
+
+  accelCmd.z = 0; // Ensure no vertical component in the lateral control output
+
+  return accelCmd;
+}
+```
+
+### Yaw Controller
+
+The yaw controller maintains a set heading using a simple proportional controller.
+
+**Proportional Control**:
+
+A simple P controller adjusts the yaw rate based on the heading error. The yaw rate command $r_c$ is calculated by multiplying the difference between the target and actual yaw angles by a proportional gain $k_p$. Where The control signal $r_c$ is the commanded yaw rate
+
+```math
+r_c = k_p (\psi_{\text{target}} - \psi_{\text{actual}})
+```
+
+This is a standard proportional control where $r_c$ is the commanded yaw rate, $k_p$ is the proportional gain, $\psi_{\text{target}}$ is the desired yaw, and $\psi_{\text{actual}}$ is the current yaw.
+
+We use the `fmodf` function is used to ensure that the yaw error is within the range $[-2\pi, 2\pi]$. This is necessary because yaw angles can wrap around beyond $2\pi$ radians (360 degrees), and we want to ensure we take the shortest path to the target yaw.
+
+Then the `if` conditions then adjust the yaw error to be within $[-pi, pi]$ so that the drone rotates the shortest distance to the desired yaw, whether that means rotating clockwise or counterclockwise.
+
+The proportional gain $k_p$ is then applied to the yaw error to calculate the yaw rate command $r_c$ , which is the rate at which the drone should change its yaw to reduce the error.
+
+This implementation of ```QuadControl::YawControl()``` ensures that the drone yaws towards the commanded heading as efficiently as possible, by always taking the shortest rotational path.
+
+```cpp
+float QuadControl::YawControl(float yawCmd, float yaw)
+{
+  
+  float yawRateCmd=0;
+
+  float yawError = fmodf(yawCmd - yaw, 2 * F_PI);
+  if (yawError > F_PI) {
+      yawError -= 2 * F_PI;
+  } else if (yawError < -F_PI) {
+      yawError += 2 * F_PI;
+  }
+
+  yawRateCmd = kpYaw * yawError;
+  
+  return yawRateCmd;
+
+}
+```
+
+### Results
+
+I am out of words from this write up to describe the results, am just glad :D !
+
+![Simulation Scenario 4 Results](img/scenario_4_ali_elouafiq.gif)
+![Simulation Scenario 5 Results](img/scenario_5_ali_elouafiq.gif)
