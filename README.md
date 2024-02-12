@@ -479,5 +479,12 @@ float QuadControl::YawControl(float yawCmd, float yaw)
 
 I am out of words from this write up to describe the results, am just glad :D !
 
+#### Scenario 3
+![Simulation Scenario 3 Results](img/scenario_3_ali_elouafiq.gif)
+
+#### Scenario 4
 ![Simulation Scenario 4 Results](img/scenario_4_ali_elouafiq.gif)
+
+
+#### Scenario 5
 ![Simulation Scenario 5 Results](img/scenario_5_ali_elouafiq.gif)
